@@ -25,7 +25,7 @@ connection.connect(function (err) {
 });
 
 function buildProductList(input, fn) {
-    var query = connection.query("select item_id, product_name, price, stock_quantity from products order by product_name", function (err, res) {
+    var query = connection.query("select item_id, product_name, price, stock_quantity from products  where stock_quantity > 0 order by product_name", function (err, res) {
         if (err) throw err;
         else {
             for (var i = 0; i < res.length; i++) {
@@ -43,36 +43,97 @@ function buildProductList(input, fn) {
                 else {
                     productName += "s"
                 }
-                console.log("We've got " + productName + " for $" + productList[i].product_price.toFixed(2));
+                console.log("We've got " + productName + " for $" + productList[i].product_price.toFixed(2) + ". Select Item ID " + productList[i].product_id + ".");
             }
             fn();
         }
     })
 };
 
+function exitProgram() {
+    connection.end();
+}
+
+function removeFromInventory(item_id, item_quantity, fn) {
+    var query = connection.query("update products set stock_quantity = ? where item_id = ?", [item_quantity, item_id], function (err, res) {
+        if (err) { throw err; }
+        else {
+            //   fn();
+        }
+    });
+}
 
 function start() {
+    productList = [];
     buildProductList("nope", getPrompt);
 }
 
 function getPrompt() {
-    console.log("Ready for prompt");
+    inquirer
+        .prompt([{
+            name: "itemToBuy",
+            type: "input",
+            message: "The Item ID of what you want to buy?",
+            validate: function (value) {
+                if (isNaN(parseInt(value)) === false) {
+                    return true;
+                }
+                return false;
+            }
+        },
+        {
+            name: "quantity",
+            type: "input",
+            message: "How many would you like?",
+            validate: function (value) {
+                if (isNaN(parseFloat(value)) === false) {
+                    return true;
+                }
+                return false;
+            }
+        }
+        ])
+        .then(function (answer) {
+            var productFound = false;
+            for (var i = 0; i < productList.length; i++) {
+                if (productList[i].product_id === parseInt(answer.itemToBuy)) {
+                    productFound = true;
+                    //check to see if enough stock is on hand
+                    if (productList[i].stock_quantity >= parseInt(answer.quantity)) {
+                        console.log("That will be $" + (productList[i].product_price * parseInt(answer.quantity)).toFixed(2) + ".");
+                        removeFromInventory(parseInt(answer.itemToBuy), productList[i].stock_quantity - parseInt(answer.quantity), promptShopAgain);
+                    }
+                    else {
+                        console.log("I'm sorry, we do not have enough stock on hand.")
+                    }
+                    i += productList.length;
+
+                }
+            }
+            if (!productFound) { console.log("I'm sorry, I could not find that product.") }
+            promptShopAgain();
+        });
+
 }
-      /* inquirer
-      .prompt({
-        name: "postOrBid",
-        type: "rawlist",
-        message: "Would you like to [POST] an auction or [BID] on an auction?",
-        choices: ["POST", "BID"]
-      })
-      .then(function(answer) {
-        // based on their answer, either call the bid or the post functions
-        if (answer.postOrBid.toUpperCase() === "POST") {
-          //postAuction();
-        }
-        else {
-          //bidAuction();
-        }
-      }); */
+
+function promptShopAgain() {
+    inquirer
+        .prompt([{
+            name: "shopAgain",
+            type: "list",
+            message: "Continue shopping?",
+            choices: ["Yes", "No"]
+        }])
+        .then(function (answer) {
+            if (answer.shopAgain === "Yes") {
+                start();
+            }
+            else {
+                console.log("Thank you come again!");
+                exitProgram();
+
+            }
+        })
+}
 
 
