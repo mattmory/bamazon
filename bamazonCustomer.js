@@ -86,7 +86,7 @@ function getPrompt() {
             type: "input",
             message: "How many would you like?",
             validate: function (value) {
-                if (isNaN(parseFloat(value)) === false) {
+                if (isNaN(parseInt(value)) === false) {
                     return true;
                 }
                 return false;
@@ -137,3 +137,6 @@ function promptShopAgain() {
 }
 
 
+function exitProgram() {
+    connection.end();
+}
